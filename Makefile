@@ -1,11 +1,15 @@
 BINARY := bin/openshift-logging-e2e-tests-tests-ext
 
+# GOFLAGS is pinned because the OpenShift Go builder images export
+# GOFLAGS=-mod=vendor. This repo has no vendor/ directory, so an inherited
+# value sends the build looking for vendor/modules.txt and fails with
+# "inconsistent vendoring" in CI while still succeeding locally.
 .PHONY: build
 build:
 	@echo "Building extension binary..."
 	@cd test/e2e && $(MAKE) -f bindata.mk update-bindata
 	@mkdir -p bin
-	GOTOOLCHAIN=auto GONOSUMDB="*" go build -o $(BINARY) ./cmd
+	GOFLAGS=-mod=readonly GOTOOLCHAIN=auto GONOSUMDB="*" go build -o $(BINARY) ./cmd
 	@echo "✅ Binary built: $(BINARY)"
 
 .PHONY: clean
