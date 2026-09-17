@@ -890,6 +890,22 @@ func (l lokiStack) createSecretFromGateway(oc *exutil.CLI, name, namespace, toke
 	err := os.MkdirAll(dirname, 0777)
 	o.Expect(err).NotTo(o.HaveOccurred())
 
+	// The service-ca operator creates the *-gateway-ca-bundle configmap before it
+	// injects the service-ca.crt key into it, so wait for the key itself rather than
+	// just the configmap's existence before extracting it.
+	cmName := l.name + "-gateway-ca-bundle"
+	err = wait.PollUntilContextTimeout(context.Background(), 3*time.Second, 60*time.Second, true, func(context.Context) (done bool, err error) {
+		cm, err := oc.AdminKubeClient().CoreV1().ConfigMaps(l.namespace).Get(context.Background(), cmName, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return cm.Data["service-ca.crt"] != "", nil
+	})
+	compat_otp.AssertWaitPollNoErr(err, fmt.Sprintf("service-ca.crt was not populated in configmap/%s", cmName))
+
 	err = oc.AsAdmin().WithoutNamespace().Run("extract").Args("cm/"+l.name+"-gateway-ca-bundle", "-n", l.namespace, "--keys=service-ca.crt", "--confirm", "--to="+dirname).Execute()
 	o.Expect(err).NotTo(o.HaveOccurred())
 
