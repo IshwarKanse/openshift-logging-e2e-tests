@@ -262,7 +262,7 @@ func (so *SubscriptionObjects) SubscribeOperator(oc *exutil.CLI) {
 		if apierrors.IsNotFound(err) {
 			e2e.Logf("The project %s is not found, create it now...", so.Namespace)
 			namespaceTemplate := testdata.FixturePath("logging", "subscription", "namespace.yaml")
-			namespaceFile, err := processTemplate(oc, "-f", namespaceTemplate, "-p", "NAMESPACE_NAME="+so.Namespace)
+			namespaceFile, err := processTemplate(oc, "-n", "default", "-f", namespaceTemplate, "-p", "NAMESPACE_NAME="+so.Namespace)
 			o.Expect(err).NotTo(o.HaveOccurred())
 			defer os.Remove(namespaceFile)
 			err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 60*time.Second, true, func(context.Context) (done bool, err error) {
@@ -671,7 +671,7 @@ func (clf *clusterlogforwarder) create(oc *exutil.CLI, optionalParameters ...str
 		enableClusterMonitoring(oc, clf.namespace)
 	}
 
-	parameters := []string{"-f", clf.templateFile, "-p", "NAME=" + clf.name, "NAMESPACE=" + clf.namespace}
+	parameters := []string{"-n", clf.namespace, "-f", clf.templateFile, "-p", "NAME=" + clf.name, "NAMESPACE=" + clf.namespace}
 	if clf.secretName != "" {
 		parameters = append(parameters, "SECRET_NAME="+clf.secretName)
 	}
@@ -744,7 +744,7 @@ func (clf *clusterlogforwarder) update(oc *exutil.CLI, template string, patches 
 	var err error
 	if template != "" {
 		//parameters := []string{"-f", template, "--ignore-unknown-parameters=true", "-p", "NAME=" + clf.name, "NAMESPACE=" + clf.namespace}
-		parameters := []string{"-f", template, "-p", "NAME=" + clf.name, "NAMESPACE=" + clf.namespace}
+		parameters := []string{"-n", clf.namespace, "-f", template, "-p", "NAME=" + clf.name, "NAMESPACE=" + clf.namespace}
 		if clf.secretName != "" {
 			parameters = append(parameters, "SECRET_NAME="+clf.secretName)
 		}
@@ -953,7 +953,7 @@ func (lfme *logFileMetricExporter) create(oc *exutil.CLI, optionalParameters ...
 		lfme.template = testdata.FixturePath("logging", "logfilemetricexporter", "lfme.yaml")
 	}
 
-	parameters := []string{"-f", lfme.template, "-p", "NAME=" + lfme.name, "NAMESPACE=" + lfme.namespace}
+	parameters := []string{"-n", lfme.namespace, "-f", lfme.template, "-p", "NAME=" + lfme.name, "NAMESPACE=" + lfme.namespace}
 	if len(optionalParameters) > 0 {
 		parameters = append(parameters, optionalParameters...)
 	}
@@ -2099,7 +2099,7 @@ type eventRouter struct {
 }
 
 func (e eventRouter) deploy(oc *exutil.CLI, optionalParameters ...string) {
-	parameters := []string{"-f", e.template, "-l", "app=eventrouter", "-p", "NAME=" + e.name, "NAMESPACE=" + e.namespace}
+	parameters := []string{"-n", e.namespace, "-f", e.template, "-l", "app=eventrouter", "-p", "NAME=" + e.name, "NAMESPACE=" + e.namespace}
 	if len(optionalParameters) > 0 {
 		parameters = append(parameters, optionalParameters...)
 	}

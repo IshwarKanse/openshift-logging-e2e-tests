@@ -983,7 +983,7 @@ var _ = g.Describe("[sig-openshift-logging] Logging NonPreRelease must-gather", 
 
 		compat_otp.By("create UIPlugin")
 		uiPluginTemplate := filepath.Join(loggingBaseDir, "UIPlugin", "UIPlugin.yaml")
-		file, err := processTemplate(oc, "-f", uiPluginTemplate, "-p", "LOKISTACK_NAME="+ls.name)
+		file, err := processTemplate(oc, "-n", "default", "-f", uiPluginTemplate, "-p", "LOKISTACK_NAME="+ls.name)
 		defer os.Remove(file)
 		compat_otp.AssertWaitPollNoErr(err, "Can not process uiPluginTemplate")
 		err = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", file).Execute()

@@ -3,15 +3,19 @@ package logging
 import (
 	"github.com/openshift/openshift-logging-e2e-tests/test/e2e/testdata"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	g "github.com/onsi/ginkgo/v2"
 	o "github.com/onsi/gomega"
 	compat_otp "github.com/openshift/origin/test/extended/util/compat_otp"
 	exutil "github.com/openshift/origin/test/extended/util"
 	"gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
 )
 
@@ -214,19 +218,38 @@ var _ = g.Describe("[sig-openshift-logging] Logging NonPreRelease", func() {
 			ls.waitForLokiStackToBeReady(oc)
 			e2e.Logf("LokiStack deployed")
 
-			e2e.Logf("Getting List of configmaps managed by Loki Controller")
-			lokiCMList, err := oc.AdminKubeClient().CoreV1().ConfigMaps(ls.namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/created-by=lokistack-controller"})
-			o.Expect(err).NotTo(o.HaveOccurred())
-			o.Expect(len(lokiCMList.Items) == 5).Should(o.BeTrue())
+			// The controller can take a few seconds after LokiStack becomes Ready to finish
+			// creating all of its configmaps, so poll for the expected count instead of a
+			// single point-in-time check. ls.namespace is shared with other LokiStack
+			// tests, so also filter by this instance's own app.kubernetes.io/instance
+			// label (set by the loki-operator's commonLabels on every configmap it
+			// manages) rather than relying on the created-by label alone, which matches
+			// every LokiStack controller-managed configmap in the namespace.
+			listLokiControllerCMs := func(reason string) []corev1.ConfigMap {
+				e2e.Logf("Getting list of configmaps managed by Loki Controller (%s)", reason)
+				var ownCMs []corev1.ConfigMap
+				err := wait.PollUntilContextTimeout(context.Background(), 3*time.Second, 60*time.Second, true, func(context.Context) (done bool, err error) {
+					lokiCMList, err := oc.AdminKubeClient().CoreV1().ConfigMaps(ls.namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/created-by=lokistack-controller,app.kubernetes.io/instance=" + ls.name})
+					if err != nil {
+						return false, err
+					}
+					ownCMs = lokiCMList.Items
+					return len(ownCMs) == 5, nil
+				})
+				compat_otp.AssertWaitPollNoErr(err, fmt.Sprintf("expected 5 configmaps for lokistack/%s, got %d", ls.name, len(ownCMs)))
+				return ownCMs
+			}
+
+			lokiCMList := listLokiControllerCMs("initial deploy")
 
 			e2e.Logf("Deleting Loki Configmaps")
-			for _, items := range lokiCMList.Items {
+			for _, items := range lokiCMList {
 				err = oc.AsAdmin().WithoutNamespace().Run("delete").Args("cm/"+items.Name, "-n", ls.namespace).Execute()
 				o.Expect(err).NotTo(o.HaveOccurred())
 			}
 
 			e2e.Logf("Deleting Loki Distributor deployment")
-			distributorPods, err := getPodNames(oc, ls.namespace, "app.kubernetes.io/component=distributor")
+			distributorPods, err := getPodNames(oc, ls.namespace, "app.kubernetes.io/component=distributor,app.kubernetes.io/instance="+ls.name)
 			o.Expect(err).NotTo(o.HaveOccurred())
 			err = oc.AsAdmin().WithoutNamespace().Run("delete").Args("deployment/"+ls.name+"-distributor", "-n", ls.namespace).Execute()
 			o.Expect(err).NotTo(o.HaveOccurred())
@@ -237,15 +260,12 @@ var _ = g.Describe("[sig-openshift-logging] Logging NonPreRelease", func() {
 
 			e2e.Logf("Check to see reconciliation of Loki Distributor by Controller....")
 			ls.waitForLokiStackToBeReady(oc)
-			podList, err := oc.AdminKubeClient().CoreV1().Pods(ls.namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/component=distributor"})
+			podList, err := oc.AdminKubeClient().CoreV1().Pods(ls.namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/component=distributor,app.kubernetes.io/instance=" + ls.name})
 			o.Expect(err).NotTo(o.HaveOccurred())
 			o.Expect(len(podList.Items) == 1).Should(o.BeTrue())
 			e2e.Logf("Distributor deployment reconciled!")
 
-			e2e.Logf("Check to see reconciliation of configmaps by Controller....")
-			lokiCMList, err = oc.AdminKubeClient().CoreV1().ConfigMaps(ls.namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/created-by=lokistack-controller"})
-			o.Expect(err).NotTo(o.HaveOccurred())
-			o.Expect(len(lokiCMList.Items) == 5).Should(o.BeTrue())
+			listLokiControllerCMs("post-reconciliation")
 			e2e.Logf("Loki Configmaps are reconciled \n")
 
 		})
@@ -281,10 +301,13 @@ var _ = g.Describe("[sig-openshift-logging] Logging NonPreRelease", func() {
 			ls.waitForLokiStackToBeReady(oc)
 			e2e.Logf("LokiStack deployed")
 
-			// Get names of some lokistack components before patching
-			querierPodNameBeforePatch, err := getPodNames(oc, ls.namespace, "app.kubernetes.io/component=querier")
+			// Get names of some lokistack components before patching. ls.namespace is shared
+			// with other LokiStack tests, so scope by this instance's own name too (the
+			// same app.kubernetes.io/instance convention used elsewhere in this codebase)
+			// rather than by component alone, which would match every LokiStack's pods.
+			querierPodNameBeforePatch, err := getPodNames(oc, ls.namespace, "app.kubernetes.io/component=querier,app.kubernetes.io/instance="+ls.name)
 			o.Expect(err).NotTo(o.HaveOccurred())
-			queryFrontendPodNameBeforePatch, err := getPodNames(oc, ls.namespace, "app.kubernetes.io/component=query-frontend")
+			queryFrontendPodNameBeforePatch, err := getPodNames(oc, ls.namespace, "app.kubernetes.io/component=query-frontend,app.kubernetes.io/instance="+ls.name)
 			o.Expect(err).NotTo(o.HaveOccurred())
 
 			g.By("Patching lokiStack with limits and overrides")
