@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	g "github.com/onsi/ginkgo/v2"
@@ -222,24 +221,19 @@ var _ = g.Describe("[sig-openshift-logging] Logging NonPreRelease", func() {
 			// The controller can take a few seconds after LokiStack becomes Ready to finish
 			// creating all of its configmaps, so poll for the expected count instead of a
 			// single point-in-time check. ls.namespace is shared with other LokiStack
-			// tests, so also filter by this instance's own name prefix (the naming
-			// convention every *-config/-gateway/... configmap already follows) rather
-			// than relying on the created-by label alone, which matches every LokiStack
-			// controller-managed configmap in the namespace.
+			// tests, so also filter by this instance's own app.kubernetes.io/instance
+			// label (set by the loki-operator's commonLabels on every configmap it
+			// manages) rather than relying on the created-by label alone, which matches
+			// every LokiStack controller-managed configmap in the namespace.
 			listLokiControllerCMs := func(reason string) []corev1.ConfigMap {
 				e2e.Logf("Getting list of configmaps managed by Loki Controller (%s)", reason)
 				var ownCMs []corev1.ConfigMap
 				err := wait.PollUntilContextTimeout(context.Background(), 3*time.Second, 60*time.Second, true, func(context.Context) (done bool, err error) {
-					lokiCMList, err := oc.AdminKubeClient().CoreV1().ConfigMaps(ls.namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/created-by=lokistack-controller"})
+					lokiCMList, err := oc.AdminKubeClient().CoreV1().ConfigMaps(ls.namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/created-by=lokistack-controller,app.kubernetes.io/instance=" + ls.name})
 					if err != nil {
 						return false, err
 					}
-					ownCMs = nil
-					for _, cm := range lokiCMList.Items {
-						if strings.HasPrefix(cm.Name, ls.name+"-") {
-							ownCMs = append(ownCMs, cm)
-						}
-					}
+					ownCMs = lokiCMList.Items
 					return len(ownCMs) == 5, nil
 				})
 				compat_otp.AssertWaitPollNoErr(err, fmt.Sprintf("expected 5 configmaps for lokistack/%s, got %d", ls.name, len(ownCMs)))
