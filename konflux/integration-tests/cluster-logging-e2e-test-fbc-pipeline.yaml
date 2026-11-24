@@ -34,6 +34,11 @@ spec:
     - name: test_suite
       description: Name of the suite of the test extension to run
       default: "openshift-logging-e2e-tests/cluster-logging-operator"
+    - name: include_tests
+      description: >-
+        Case-insensitive extended regular expression. When it is not empty, only the tests of the suite whose name
+        matches it are run (before skip_tests is applied). Empty runs the whole suite.
+      default: ""
     - name: skip_tests
       description: >-
         Case-insensitive extended regular expression. The tests of the suite whose name matches it are not run. The
@@ -435,6 +440,8 @@ spec:
           value: $(params.tests_revision)
         - name: TEST_SUITE
           value: $(params.test_suite)
+        - name: INCLUDE_TESTS
+          value: $(params.include_tests)
         - name: SKIP_TESTS
           value: $(params.skip_tests)
         - name: TEST_TIMEOUT
@@ -450,6 +457,8 @@ spec:
           - name: TESTS_REVISION
             type: string
           - name: TEST_SUITE
+            type: string
+          - name: INCLUDE_TESTS
             type: string
           - name: SKIP_TESTS
             type: string
@@ -519,6 +528,8 @@ spec:
                 value: /work/home
               - name: TEST_SUITE
                 value: $(params.TEST_SUITE)
+              - name: INCLUDE_TESTS
+                value: $(params.INCLUDE_TESTS)
               - name: SKIP_TESTS
                 value: $(params.SKIP_TESTS)
               - name: TEST_TIMEOUT
@@ -535,9 +546,9 @@ spec:
               set -uo pipefail
 
               ext=/work/logging-tests-ext
-              names=$("${ext}" list tests --suite "${TEST_SUITE}" -o names | grep '^\[' | grep -Eiv -- "${SKIP_TESTS:-^$}" || true)
+              names=$("${ext}" list tests --suite "${TEST_SUITE}" -o names | grep '^\[' | grep -Ei -- "${INCLUDE_TESTS:-.}" | grep -Eiv -- "${SKIP_TESTS:-^$}" || true)
               if [ -z "${names}" ]; then
-                echo "ERROR: no tests in the suite ${TEST_SUITE} after skipping '${SKIP_TESTS}'"
+                echo "ERROR: no tests in the suite ${TEST_SUITE} after including '${INCLUDE_TESTS}' and skipping '${SKIP_TESTS}'"
                 exit 1
               fi
               echo "Tests to run, logging ${LOGGING_TEST_VERSION}:"
