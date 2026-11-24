@@ -554,6 +554,11 @@ spec:
               echo
               echo "Results"
               jq -r '(if .result == "passed" then "PASSED " elif .result == "skipped" then "SKIPPED" else "FAILED " end) + " " + .name' "${results}"
+              # The results of the failed tests, so the reason is in the log of the task. A record is cut to 4000
+              # characters.
+              echo
+              echo "Failed tests"
+              jq -r 'select(.result != "passed" and .result != "skipped") | "---- " + .name + "\n" + (tostring | .[0:4000])' "${results}"
               expected=$(grep -c . <<<"${names}")
               recorded=$(jq -s 'length' "${results}")
               if [ "${recorded}" -ne "${expected}" ]; then
