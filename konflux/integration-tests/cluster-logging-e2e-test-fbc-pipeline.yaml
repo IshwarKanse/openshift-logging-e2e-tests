@@ -499,6 +499,13 @@ spec:
               GOFLAGS=-mod=readonly GOTOOLCHAIN=auto go build -o /work/logging-tests-ext ./cmd
           - name: run-tests
             image: quay.io/konflux-ci/konflux-test:v1.4.52@sha256:aa2c97da9bb73a4e8d1c6b41950f8d902b74461be0e042debe89277fdc4ebe49
+            # The namespace default (2Gi) killed the first test (exit 137) after a few seconds.
+            resources:
+              requests:
+                cpu: "1"
+                memory: 2Gi
+              limits:
+                memory: 8Gi
             volumeMounts:
               - name: credentials
                 mountPath: /credentials
