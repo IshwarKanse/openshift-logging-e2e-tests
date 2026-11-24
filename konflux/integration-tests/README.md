@@ -43,11 +43,27 @@ and the OCP version from the FBC at run time.
 | Parameter | Default | |
 |---|---|---|
 | `ocp_version` | `5.0` | The OCP version of the scenario. |
-| `test_suite` | `openshift-logging-e2e-tests/cluster-logging-operator` | Suite of the extension. |
-| `include_tests` | empty (the whole suite) | Case-insensitive regular expression of test names. When it is set, only the tests of the suite that match it are run, before `skip_tests` is applied. |
+| `test_suite` | `openshift-logging-e2e-tests/cluster-logging-operator/all` | Suite of the extension (all non-disruptive Cluster Logging Operator tests; the Loki Operator tests are not part of it). |
+| `include_tests` | the core set (27 tests, see below) | Case-insensitive regular expression of test names. Only the tests of the suite that match it are run, before `skip_tests` is applied. Empty runs the whole suite (112 tests, several hours). |
 | `skip_tests` | `CloudWatch\|s3 output\|High-78380\|Critical-75841` | Case-insensitive regular expression of test names that are not run: the tests that need credentials of AWS CloudWatch or S3, and tests 78380 and 75841, which look for the audit logs of the Kubernetes API server that a hosted cluster does not have. |
 | `tests_repo`, `tests_revision` | this repository, `main` | Where the tests are built from. |
 | `test_timeout` | `60m` | Timeout of a single test. |
+
+## Test sets
+
+A cluster lives two hours, about 15 minutes of which go to provisioning, so the tests of one scenario must fit in about
+1h45. The tests are selected by their Polarion ID (`-<id>-` in the test name) and were measured on a hosted cluster
+(6.7, OCP 5.0, MinIO). Two scenarios per release and OCP version, each on its own cluster:
+
+| Set | Tests | Time | `include_tests` |
+|---|---|---|---|
+| core (default) | 27: the 10 PreMerge tests of the Cluster Logging Operator, Elasticsearch (46882, 55200, 74927, 86567), HTTP (60926, 60933, 60936, 47760), syslog (60699, 61477, 75317, 75431, 81512), Splunk (54976, 54980, 71028) and LokiStack label keys (75334) | about 55 min | the default |
+| extended | 14: scheduler (81398), multi-mode (64147, 65407), NetworkPolicy (85411, 85466, 85469), filters and inputs (71000, 71001, 74945, 74947, 75386, 75390), metrics and alerts (55396, 74322) | about 46 min | `-(81398\|64147\|65407\|85411\|85466\|85469\|74947\|55396\|71000\|74322\|71001\|74945\|75386\|75390)-` |
+
+Not in a set yet, to be debugged on a cluster: 81397 (collector deployment affinity: no running collector pod on the node of the
+log producer), 75234 and 81855 (Splunk: the search returns `204 No Content`, no logs found). Not possible on a hosted cluster
+or in the ART tenant: the CloudWatch, S3 and Google Cloud Logging tests, 75298 (needs `GLOKIUSER` and `GLOKIPWD`), the Kafka
+tests (need the AMQ operator), 78380 and 75841 (API server audit logs). 71749 failed twice and passed once, so it is flaky.
 
 ## Secrets in the tenant
 
@@ -74,4 +90,4 @@ Maintainers of the tenant can manage ITS and patch Snapshots, but cannot create 
   scenario ran for 67 minutes in `art-rhosdt-tenant` and passed, so more than an hour is possible; the limit is not known. A cluster
   of the OCP version of the scenario can be provisioned only when the `stable` channel has it (`stable-5.0` has 5.0.0 and 5.0.1).
 - How the stage credentials reach the nodes of a HyperShift hosted cluster (see `add-stage-credentials`).
-- Which tests of the suite pass on a hosted cluster: the default `skip_tests` is a starting point.
+- The two sets as a whole: each batch of tests passed on its own cluster, but the final sets have not run as one scenario yet.

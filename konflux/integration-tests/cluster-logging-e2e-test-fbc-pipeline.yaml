@@ -33,12 +33,16 @@ spec:
       default: "main"
     - name: test_suite
       description: Name of the suite of the test extension to run
-      default: "openshift-logging-e2e-tests/cluster-logging-operator"
+      default: "openshift-logging-e2e-tests/cluster-logging-operator/all"
     - name: include_tests
       description: >-
         Case-insensitive extended regular expression. When it is not empty, only the tests of the suite whose name
-        matches it are run (before skip_tests is applied). Empty runs the whole suite.
-      default: ""
+        matches it are run (before skip_tests is applied). Empty runs the whole suite. The default is the core set:
+        the PreMerge tests of the Cluster Logging Operator plus the forwarding tests that passed on a hosted cluster
+        (Elasticsearch, HTTP, syslog, Splunk, LokiStack). A scenario with the extended set (the scheduler,
+        validation, filter and NetworkPolicy tests) passes its own list, so that each run fits the two hours a
+        cluster lives.
+      default: "-(68961|74398|74397|65408|65685|84892|85402|71749|71049|76727|47760|60926|60933|60936|75431|75317|81512|60699|61477|46882|74927|55200|86567|75334|54980|54976|71028)-"
     - name: skip_tests
       description: >-
         Case-insensitive extended regular expression. The tests of the suite whose name matches it are not run. The
