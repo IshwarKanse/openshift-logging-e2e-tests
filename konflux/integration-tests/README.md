@@ -44,7 +44,7 @@ and the OCP version from the FBC at run time.
 |---|---|---|
 | `ocp_version` | `5.0` | The OCP version of the scenario. |
 | `test_suite` | `openshift-logging-e2e-tests/cluster-logging-operator` | Suite of the extension. |
-| `skip_tests` | `CloudWatch\|s3 output` | Case-insensitive regular expression of test names that are not run: the tests that need credentials of AWS CloudWatch or S3. |
+| `skip_tests` | `CloudWatch\|s3 output\|High-78380\|Critical-75841` | Case-insensitive regular expression of test names that are not run: the tests that need credentials of AWS CloudWatch or S3, and tests 78380 and 75841, which look for the audit logs of the Kubernetes API server that a hosted cluster does not have. |
 | `tests_repo`, `tests_revision` | this repository, `main` | Where the tests are built from. |
 | `test_timeout` | `60m` | Timeout of a single test. |
 

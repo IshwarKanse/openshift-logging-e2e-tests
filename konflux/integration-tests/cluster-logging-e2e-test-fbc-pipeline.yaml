@@ -37,8 +37,9 @@ spec:
     - name: skip_tests
       description: >-
         Case-insensitive extended regular expression. The tests of the suite whose name matches it are not run. The
-        default skips the tests that need credentials of AWS CloudWatch or S3.
-      default: "CloudWatch|s3 output"
+        default skips the tests that need credentials of AWS CloudWatch or S3, and the two tests (78380, 75841)
+        that need the audit logs of the Kubernetes API server, which a hosted cluster does not have.
+      default: "CloudWatch|s3 output|High-78380|Critical-75841"
     - name: test_timeout
       description: Maximum duration of a single test
       default: "60m"
