@@ -548,7 +548,9 @@ spec:
               : > "${results}"
               while IFS= read -r name; do
                 echo "=== ${name}"
-                "${ext}" run-test --timeout "${TEST_TIMEOUT}" -o jsonl "${name}" | grep '^{' >> "${results}"
+                # </dev/null: run-test also reads test names from stdin, so without it the first call took the
+                # rest of the list from the here-string and ran all the tests at once on the same cluster.
+                "${ext}" run-test --timeout "${TEST_TIMEOUT}" -o jsonl "${name}" </dev/null | grep '^{' >> "${results}"
               done <<<"${names}"
 
               echo
