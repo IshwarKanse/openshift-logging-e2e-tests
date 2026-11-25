@@ -58,12 +58,15 @@ A cluster lives two hours, about 15 minutes of which go to provisioning, so the 
 | Set | Tests | Time | `include_tests` |
 |---|---|---|---|
 | core (default) | 27: the 10 PreMerge tests of the Cluster Logging Operator, Elasticsearch (46882, 55200, 74927, 86567), HTTP (60926, 60933, 60936, 47760), syslog (60699, 61477, 75317, 75431, 81512), Splunk (54976, 54980, 71028) and LokiStack label keys (75334) | about 55 min | the default |
-| extended | 14: scheduler (81398), multi-mode (64147, 65407), NetworkPolicy (85411, 85466, 85469), filters and inputs (71000, 71001, 74945, 74947, 75386, 75390), metrics and alerts (55396, 74322) | about 46 min | `-(81398\|64147\|65407\|85411\|85466\|85469\|74947\|55396\|71000\|74322\|71001\|74945\|75386\|75390)-` |
+| extended | 16: scheduler (81398), multi-mode (64147, 65407), NetworkPolicy (85411, 85466, 85469), filters and inputs (71000, 71001, 74945, 74947, 75386, 75390), metrics and alerts (55396, 74322), Splunk (75234, 81855) | about 46 min plus the two Splunk tests (5 to 15 min each) | `-(81398\|64147\|65407\|85411\|85466\|85469\|74947\|55396\|71000\|74322\|71001\|74945\|75386\|75390\|75234\|81855)-` |
 
-Not in a set yet, to be debugged on a cluster: 81397 (collector deployment affinity: no running collector pod on the node of the
-log producer), 75234 and 81855 (Splunk: the search returns `204 No Content`, no logs found). Not possible on a hosted cluster
-or in the ART tenant: the CloudWatch, S3 and Google Cloud Logging tests, 75298 (needs `GLOKIUSER` and `GLOKIPWD`), the Kafka
-tests (need the AMQ operator), 78380 and 75841 (API server audit logs). 71749 failed twice and passed once, so it is flaky.
+Not in a set yet: 81397 (collector deployment affinity). It failed once in the pipeline (no running collector pod on the node of
+the log producer) and passed 8 of 8 times on a hand-run hosted cluster, also straight after 81398, so the cause is not known; the
+assertion now prints the pods when it fails. 75234 and 81855 failed on a hosted cluster until the tests were fixed: the namespace
+`openshift-operator-lifecycle-manager` has no pods there, and the `kubeAPI` and `openshiftAPI` log sources need audit logs of the API servers.
+
+Not possible on a hosted cluster or in the ART tenant: the CloudWatch, S3 and Google Cloud Logging tests, 75298 (needs `GLOKIUSER` and `GLOKIPWD`), the Kafka
+tests (need the AMQ operator), 78380 and 75841 (API server audit logs). 71749 failed twice and passed once in the pipeline (`vector_loki.go:949`) and passed 3 of 3 times on a hand-run cluster, so it is flaky; it stays in the core set as one of the PreMerge tests.
 
 ## Secrets in the tenant
 
